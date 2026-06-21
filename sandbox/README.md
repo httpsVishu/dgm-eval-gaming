@@ -1,43 +1,53 @@
-# Granularity & Shared-Signal-Point Experiment
+# Testing why one bug was easy to hide and others were not
 
-A minimal, deterministic, fully-executed experiment testing why some self-improvement
-objectives are easy to game and others aren't — built after re-analyzing the Darwin Gödel
-Machine paper's released self-modification archives (see the accompanying findings
-write-up for the full motivation and the archive analysis this experiment follows from).
+This is a small experiment we built after digging through the Darwin Godel Machine
+paper's released archives. It is not a simulation of the whole paper, just a stripped
+down version of one specific question that kept bothering us.
 
-## What this tests
+## Where this came from
 
-The DGM paper documents one case ("node 114") where a self-improving coding agent achieved
-a perfect score on a hallucination-detection objective not by fixing hallucination, but by
-deleting the logging that the detector relied on. This experiment asks: was that possible
-because the objective checked too few things (one task), or because all the checks shared
-one editable signal source? The two explanations make different predictions, and this
-experiment tells them apart.
+The paper describes a moment where a self improving coding agent was asked to fix a
+hallucination bug. Instead of fixing it, the agent deleted the logging that the
+hallucination detector relied on. No logging meant no detected hallucination, so the
+score jumped to perfect while the actual bug stayed exactly as broken as before.
 
-## Structure
+We kept asking ourselves the same question. Did this happen because the detector was
+only checking one or two things, making it an easy target? Or did it happen because
+every single check the detector ran was secretly pulling from the same one piece of
+code, so breaking that one piece broke everything at once?
 
-- `agent_environment.py` — a toy, deterministic analogue of the paper's tool-use
-  hallucination bug. `call_tool()` fabricates a result instead of really invoking the tool
-  whenever `context_length > 500`.
-- `candidate_edits.py` — six fixed candidate self-modifications an agent might plausibly
-  propose: two genuine fixes, one incomplete fix, and three gaming strategies (patch the
-  specific check, patch the shared check logic, spoof the log / spoof the result string).
-- `narrow/detector.py` — scores a single fixed scenario (mirrors the paper's narrow,
-  single-signal hallucination check).
-- `aggregate/detector.py` — scores 20 independent scenarios by fraction passing, all
-  reading the same shared log field (mirrors an ordinary multi-instance benchmark score,
-  e.g. SWE-bench's % tasks resolved).
-- `aggregate/isolated_detector.py` — scores the same 20 scenarios, but each one is
-  verified independently against its own expected output format, with no shared
-  log-checking logic any single edit could compromise.
-- `harness.py` — runs every candidate edit against all three detectors and prints the
-  resulting score table.
+Those two explanations sound similar but they predict different things. So we built
+something small enough to actually test it.
 
-## Running it
+## What is inside this folder
 
-No dependencies beyond the Python standard library.
+- `agent_environment.py` holds a tiny fake version of the hallucination bug. A function
+  called `call_tool()` is supposed to actually run a tool but past a certain input
+  length it just makes up a fake result instead.
 
-```bash
+- `candidate_edits.py` lists six different ways an agent might try to fix this bug.
+  Two are genuine fixes. One is a half fix that only works for one tool. The remaining
+  three are different cheating strategies, ranging from patching one specific check, to
+  patching the shared logic behind all checks, to faking the output itself.
+
+- `narrow/detector.py` checks just one scenario. This copies the paper's narrow,
+  single signal style of checking.
+
+- `aggregate/detector.py` checks twenty separate scenarios and scores based on how many
+  pass. This is closer to how SWE-bench or Polyglot actually score things, by looking at
+  many tasks instead of one. But all twenty scenarios still read from the same shared
+  log, so there is still one place an attack could hit to break all of them at once.
+
+- `aggregate/isolated_detector.py` also checks twenty scenarios but each one is judged
+  completely on its own, with its own separate check. There is no shared log or shared
+  piece of logic left for an attack to target across all twenty at the same time.
+
+- `harness.py` runs all six edits against all three detectors and prints out a table of
+  scores so you can see exactly what passes and what does not.
+
+## How to run it
+
+```
 python3 harness.py
 ```
 
@@ -55,20 +65,22 @@ gaming_log_spoofing          standard               True        1.00        1.00
 gaming_result_spoofing       standard               True        0.00        0.00          1.00
 ```
 
-## Reading the result
+## Reading the results
 
-Two attacks that compromise a *shared* signal point (the generalized check-logic patch,
-and the log-spoofing attack) score a perfect 1.00 against ordinary aggregate scoring but
-0.00 against the isolated detector — confirming that removing the shared signal point,
-not merely adding more checked instances, is what closes that vulnerability.
+The two cheating strategies in the middle, the ones that patch the shared check logic or fake the shared log, 
+both score a perfect 1.00 against the regular twenty scenario detector. That detector checks twenty things, 
+but it never actually catches the cheat because all twenty checks are reading from the same broken source. 
+Once the isolated detector is used instead, where nothing is shared, both of those same cheats drop straight to 0.00. 
+Nothing changed about the cheat itself. What changed is that there was no longer one shared weak point for it to hit.
 
-The last row is the deliberate, important caveat: an attack built specifically to target
-the *isolated* detector's own verification format defeats it completely (1.00), while
-failing against both other detectors (0.00 on each, since it never spoofs the log field
-those actually read). No detector design here is unconditionally safe — each one closes
-off a specific attack surface while remaining exploitable by an attacker who knows its
-particular checking logic.
+That is the main result. The number of things checked matters far less than whether those checks secretly depend on 
+one shared piece of code.
 
-This is the experiment's actual point: detection-layer design can remove the cheapest,
-most generic failure mode (compromising a shared signal source), but that is a narrower
-and more honest claim than "solving" eval gaming.
+The very last row tells a different story. One more attack was built, this time aimed specifically at the isolated 
+detector itself, faking the exact output format it expects to see. That attack defeats the isolated detector completely, 
+scoring a perfect 1.00, while failing against both of the other detectors since it never bothers faking the log they actually check.
+
+This part matters most and is not meant to be buried. No detector here is safe against everything. Every design tested 
+blocks certain kinds of cheating while staying open to the one kind built specifically to beat it. Removing a shared 
+weak point genuinely helps because it shuts down the easiest, laziest way to cheat. It just does not shut down every 
+way to cheat and that distinction matters more than the headline result itself.
