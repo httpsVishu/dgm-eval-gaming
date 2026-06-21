@@ -33,8 +33,7 @@ Link to the raw archive: https://drive.google.com/drive/folders/1Kcu9TbIa9Z50pJ7
 whether node 114 was a one-off accident or something that happens routinely. We
 checked every single diff for two things: did it ever touch the official benchmark
 grading code and did it ever show the specific fingerprint of node 114's trick
-(deleting a check or a log line without replacing it with something better). The
-answers were surprising — see below.
+(deleting a check or a log line without replacing it with something better).
 
 **Step 2: Build a sandbox to test the explanation.** The archive told us *what*
 didn't happen, but we needed a controlled experiment to explain *why* node 114 worked
