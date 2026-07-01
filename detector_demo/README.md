@@ -1,18 +1,18 @@
 # Real-Time Detector: A First Attempt
 
 This follows directly from the archive analysis in the repo root
-(`archive_reanalysis.md`). That work was retrospective: it audited 488 already-finished
-self-modifications and found no instance of node 114's exploit, then explained why,
+(`archive_reanalysis.md`). That work was retrospective i.e. it audited 488 already-finished
+self-modifications and found no instance of node 114's exploit, then explained why
 pointing to a shared signal point as the likely reason node 114 succeeded where nothing
 else did.
 
-This folder is the natural next question: can something resembling that exploit be
+This folder is the natural next question, can something resembling that exploit be
 caught in real time, before a self-modification is accepted, rather than found by
 auditing history afterward.
 
 Read [`DETECTOR_FINDINGS.md`](./DETECTOR_FINDINGS.md) for the full account: four distinct
 detection methods, why each one was needed (and what the others missed), the bugs found
-and fixed along the way, and an honest account of what this does and does not prove.
+and fixed along the way and an honest account of what this does and does not prove.
 
 ## Running it
 
@@ -39,5 +39,5 @@ python3 template_similarity_detector.py     # Approach B: reads code, checks for
 
 This catches every attack pattern built and tested in this project. It has not been run
 against a real, live self-improvement loop, only against a small, controlled example
-built specifically to test it. Consistent with the rest of this repo's findings: this
+built specifically to test it. Consistent with the rest of this repo's findings, this
 raises the cost of a specific, common kind of gaming. It does not close the question.
